@@ -1,0 +1,134 @@
+-- Load Ash-Libs
+local GUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/BloodLetters/Ash-Libs/refs/heads/main/source.lua"))()
+
+-- Create main window
+GUI:CreateMain({
+    Name = "Grow A Garden Spawner",
+    title = "YT: ZuriScripts",
+    ToggleUI = "K",
+    WindowIcon = "home",
+    Theme = {
+        Background = Color3.fromRGB(25, 25, 35),
+        Secondary = Color3.fromRGB(35, 35, 45),
+        Accent = Color3.fromRGB(138, 43, 226),
+        Text = Color3.fromRGB(255, 255, 255),
+        TextSecondary = Color3.fromRGB(180, 180, 180),
+        Border = Color3.fromRGB(50, 50, 60),
+        NavBackground = Color3.fromRGB(20, 20, 30)
+    },
+    Blur = { Enable = false, value = 0.2 },
+    Config = { Enabled = false }
+})
+
+--==============================
+-- Spawner Tab
+--==============================
+local spawnerTab = GUI:CreateTab("Spawner", "home")
+GUI:CreateSection({ parent = spawnerTab, text = "Pet Spawner" })
+
+-- Load Grow A Garden spawner (only for pet list, not spawning)
+local Spawner = loadstring(game:HttpGet("https://gitlab.com/darkdark/dark/-/raw/main/Spawner.lua"))()
+
+-- Default pet values
+local petWeight = 1
+local petAge = 2
+
+-- Pet Weight & Age Inputs
+GUI:CreateInput({
+    parent = spawnerTab,
+    text = "Pet Weight (KG)",
+    placeholder = "Enter weight in KG",
+    callback = function(value)
+        local num = tonumber(value)
+        if num and num > 0 then
+            petWeight = num
+        else
+            GUI:CreateNotify({ title = "Invalid Value", description = "Weight must be a number greater than 0." })
+        end
+    end
+})
+
+GUI:CreateInput({
+    parent = spawnerTab,
+    text = "Pet Age",
+    placeholder = "Enter pet age",
+    callback = function(value)
+        local num = tonumber(value)
+        if num and num > 0 then
+            petAge = num
+        else
+            GUI:CreateNotify({ title = "Invalid Value", description = "Age must be a number greater than 0." })
+        end
+    end
+})
+
+-- Fake Spawn Pets Buttons (only shows notifications, does not spawn pets)
+task.defer(function()
+    local pets = Spawner.GetPets()
+    table.sort(pets, function(a, b) return a:lower() < b:lower() end)
+
+    for _, pet in ipairs(pets) do
+        GUI:CreateButton({
+            parent = spawnerTab,
+            text = "Spawn " .. pet,
+            callback = function()
+                -- Fake spawn notification only
+                GUI:CreateNotify({
+                    title = "Pet Spawned",
+                    description = pet .. " has been spawned! Weight: " .. petWeight .. " | Age: " .. petAge
+                })
+            end
+        })
+    end
+end)
+
+--==============================
+-- Egg Randomizer Toggle
+--==============================
+local eggTab = GUI:CreateTab("Egg Randomizer", "egg")
+GUI:CreateSection({ parent = eggTab, text = "Egg Randomizer" })
+
+local eggGui -- reference to spawned GUI
+
+GUI:CreateButton({
+    parent = eggTab,
+    text = "▶ Open Egg Randomizer",
+    callback = function(button)
+        if eggGui and eggGui.Parent then
+            eggGui:Destroy()
+            eggGui = nil
+            button.Text = "▶ Open Egg Randomizer"
+            GUI:CreateNotify({ title = "Egg Randomizer", description = "Closed successfully." })
+        else
+            -- Load the Egg Randomizer source
+            local source = game:HttpGet("https://raw.githubusercontent.com/ZuriHubV2/sadsa/refs/heads/main/DSA")
+            local fn = loadstring(source)
+            if fn then
+                local ok, result = pcall(fn)
+                if ok then
+                    eggGui = game:GetService("Players").LocalPlayer:FindFirstChild("PlayerGui"):FindFirstChild("PetHatchGui")
+                    button.Text = "✖ Close Egg Randomizer"
+                    GUI:CreateNotify({ title = "Egg Randomizer", description = "Opened successfully." })
+                else
+                    GUI:CreateNotify({ title = "Egg Randomizer", description = "⚠ Failed to run script." })
+                end
+            else
+                GUI:CreateNotify({ title = "Egg Randomizer", description = "⚠ Could not load script." })
+            end
+        end
+    end
+})
+
+--==============================
+-- Mutation Randomizer Tab (placeholder)
+--==============================
+local mutationTab = GUI:CreateTab("Mutation Randomizer", "test-tube")
+GUI:CreateSection({
+    parent = mutationTab,
+    text = "Under Maintenance..."
+})
+GUI:CreateParagraph({
+    parent = mutationTab,
+    text = "Join Discord for updates:\nhttps://discord.gg/3J98QxVB",
+    alignment = Enum.TextXAlignment.Center
+})
