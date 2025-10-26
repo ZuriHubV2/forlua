@@ -1,0 +1,221 @@
+-- Orion UI loader (works!)
+loadstring(game:HttpGet("https://raw.githubusercontent.com/shlexware/Orion/main/source"))()
+
+local OrionLib = OrionLib
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local player = Players.LocalPlayer
+
+local Toggles = {
+    Campfire = false,
+    Scrapper = false,
+    Chop = false,
+    BringItems = false
+}
+
+local ChopTreeDistance = 15
+local CampfireLogDistance = 10 -- how close logs must be to campfire to count as "at campfire"
+
+local function findNearestObject(keywords)
+    local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+    if not root then return nil end
+    local nearest, minDist = nil, math.huge
+    for _, obj in pairs(Workspace:GetDescendants()) do
+        if obj:IsA("BasePart") then
+            local nameLower = string.lower(obj.Name)
+            for _, kw in ipairs(keywords) do
+                if string.find(nameLower, kw) then
+                    local dist = (obj.Position - root.Position).Magnitude
+                    if dist < minDist then
+                        nearest = obj
+                        minDist = dist
+                    end
+                end
+            end
+        end
+    end
+    return nearest
+end
+
+local function isLogAtCampfire(logObj)
+    for _, campfire in pairs(Workspace:GetDescendants()) do
+        if campfire:IsA("BasePart") and (string.find(string.lower(campfire.Name), "campfire") or string.find(string.lower(campfire.Name), "fire")) then
+            if (campfire.Position - logObj.Position).Magnitude < CampfireLogDistance then
+                return true
+            end
+        end
+    end
+    return false
+end
+
+OrionLib:MakeWindow({
+    Name = "Zuri Forest Utility",
+    HidePremium = false,
+    SaveConfig = false,
+    IntroEnabled = false
+})
+
+local tab = OrionLib:MakeTab({
+	Name = "Main Features",
+	Icon = "rbxassetid://4483362458",
+	PremiumOnly = false
+})
+
+tab:AddToggle({
+	Name = "Auto Bring Logs to Campfire",
+	Default = false,
+	Callback = function(val)
+		Toggles.Campfire = val
+	end
+})
+
+tab:AddToggle({
+	Name = "Auto Bring Logs/Scraps to Scrapper (skips campfire logs)",
+	Default = false,
+	Callback = function(val)
+		Toggles.Scrapper = val
+	end
+})
+
+tab:AddToggle({
+	Name = "Auto Chop Trees/Bushes (Big Hitbox)",
+	Default = false,
+	Callback = function(val)
+		Toggles.Chop = val
+	end
+})
+
+tab:AddToggle({
+	Name = "Bring All Items To Player",
+	Default = false,
+	Callback = function(val)
+		Toggles.BringItems = val
+	end
+})
+
+-- Feature: Auto Bring Logs to Campfire
+spawn(function()
+    while true do
+        if Toggles.Campfire and player.Character then
+            local campfire = findNearestObject({"campfire", "fire"})
+            if campfire then
+                for _, item in pairs(Workspace:GetDescendants()) do
+                    if item:IsA("BasePart") and string.find(string.lower(item.Name), "log") then
+                        pcall(function()
+                            item.CFrame = campfire.CFrame + Vector3.new(math.random(-2,2), 3, math.random(-2,2))
+                            if firetouchinterest then
+                                firetouchinterest(item, campfire, 0)
+                                task.wait(0.05)
+                                firetouchinterest(item, campfire, 1)
+                            end
+                        end)
+                    end
+                end
+            end
+        end
+        task.wait(1)
+    end
+end)
+
+-- Feature: Auto Bring Logs/Scraps to Scrapper (SKIPS logs already at campfire)
+spawn(function()
+    while true do
+        if Toggles.Scrapper and player.Character then
+            local scrapper = findNearestObject({"scrap", "scrapper"})
+            if scrapper then
+                for _, item in pairs(Workspace:GetDescendants()) do
+                    if item:IsA("BasePart") then
+                        local nameLower = string.lower(item.Name)
+                        if (string.find(nameLower, "log") or string.find(nameLower, "scrap")) and not isLogAtCampfire(item) then
+                            pcall(function()
+                                item.CFrame = scrapper.CFrame + Vector3.new(math.random(-2,2), 3, math.random(-2,2))
+                                if firetouchinterest then
+                                    firetouchinterest(item, scrapper, 0)
+                                    task.wait(0.05)
+                                    firetouchinterest(item, scrapper, 1)
+                                end
+                            end)
+                        end
+                    end
+                end
+            end
+        end
+        task.wait(1)
+    end
+end)
+
+-- Feature: Auto Chop Trees/Bushes with Big Hitbox
+local function expandTreeHitbox(tree)
+    local hitbox = tree:FindFirstChild("Hitbox") or (tree:IsA("BasePart") and tree) or tree:FindFirstChildWhichIsA("BasePart")
+    if hitbox then
+        pcall(function()
+            hitbox.Size = Vector3.new(14, 14, 14)
+            hitbox.CanCollide = false
+        end)
+    end
+end
+
+spawn(function()
+    while true do
+        if Toggles.Chop and player.Character then
+            local root = player.Character:FindFirstChild("HumanoidRootPart")
+            for _, tree in pairs(Workspace:GetDescendants()) do
+                local nameLower = string.lower(tree.Name)
+                if string.find(nameLower, "tree") or string.find(nameLower, "bush") then
+                    expandTreeHitbox(tree)
+                    local hitbox = tree:FindFirstChild("Hitbox") or (tree:IsA("BasePart") and tree) or tree:FindFirstChildWhichIsA("BasePart")
+                    if root and hitbox and (hitbox.Position - root.Position).Magnitude <= ChopTreeDistance then
+                        pcall(function()
+                            root.CFrame = CFrame.new(hitbox.Position + Vector3.new(0,3,0))
+                            if firetouchinterest then
+                                firetouchinterest(root, hitbox, 0)
+                                task.wait(0.05)
+                                firetouchinterest(root, hitbox, 1)
+                            end
+                            if ReplicatedStorage:FindFirstChild("ChopEvent") then
+                                ReplicatedStorage.ChopEvent:FireServer(tree)
+                            end
+                        end)
+                    end
+                end
+            end
+        end
+        task.wait(0.5)
+    end
+end)
+
+-- Feature: Bring All Items to Player
+spawn(function()
+    while true do
+        if Toggles.BringItems and player.Character then
+            local root = player.Character:FindFirstChild("HumanoidRootPart")
+            for _, item in pairs(Workspace:GetDescendants()) do
+                if item:IsA("BasePart") and item.Name and (
+                    string.find(string.lower(item.Name), "chest") or
+                    string.find(string.lower(item.Name), "gem") or
+                    string.find(string.lower(item.Name), "loot") or
+                    string.find(string.lower(item.Name), "log") or
+                    string.find(string.lower(item.Name), "biofuel")
+                ) then
+                    pcall(function()
+                        item.CFrame = root.CFrame + Vector3.new(math.random(-3,3), 5, math.random(-3,3))
+                        if firetouchinterest then
+                            firetouchinterest(item, root, 0)
+                            task.wait(0.05)
+                            firetouchinterest(item, root, 1)
+                        end
+                    end)
+                end
+            end
+        end
+        task.wait(1)
+    end
+end)
+
+OrionLib:MakeNotification({
+	Name = "Zuri Forest Utility",
+	Content = "Loaded! Use toggles for auto features.",
+	Image = "rbxassetid://4483362458",
+	Time = 8
+})
